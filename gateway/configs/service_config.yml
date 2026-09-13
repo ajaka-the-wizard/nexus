@@ -1,0 +1,17 @@
+services:
+  AUTH_SERVICE:
+    host: "localhost"
+    port: 5000
+    protocol: "http"
+  USER_SERVICE:
+    host: "localhost"
+    port: 8081
+    protocol: "http"
+  ORDER_SERVICE:
+    host: "localhost"
+    port: 8082
+    protocol: "http"  
+  INVENTORY_SERVICE:
+    host: "localhost"
+    port: 8083
+    protocol: "http"

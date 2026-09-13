@@ -1,0 +1,8 @@
+/dev-artifacts
+
+# Environment files
+**/.env
+**/.env.*
+.env
+.env.*
+
