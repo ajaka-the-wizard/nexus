@@ -28,6 +28,8 @@ func Proxy(s *configs.ServiceConfig) gin.HandlerFunc {
 			return
 		}
 
+		serviceURL.RawQuery = c.Request.URL.RawQuery
+
 		logger.Info("Proxying request to upstream service")
 
 		req, err := http.NewRequestWithContext(c.Request.Context(), c.Request.Method, serviceURL.String(), c.Request.Body)
@@ -55,13 +57,12 @@ func Proxy(s *configs.ServiceConfig) gin.HandlerFunc {
 			logger.Warn("Upstream service returned an error response")
 		}
 
-		c.Status(resp.StatusCode)
-
 		for key, values := range resp.Header {
 			for _, value := range values {
 				c.Header(key, value)
 			}
 		}
+		c.Status(resp.StatusCode)
 
 		if _, err := io.Copy(c.Writer, resp.Body); err != nil {
 			logger.Error("Failed to copy upstream response to client",
