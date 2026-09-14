@@ -11,7 +11,7 @@ import (
 func GenerateRequestID() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		reqId := uuid.NewV7()
-		c.Request.Header.Add("X-REQUEST-ID", reqId.String())
+		c.Request.Header.Set("X-REQUEST-ID", reqId.String())
 		c.Writer.Header().Set("X-REQUEST-ID", reqId.String())
 		c.Set("requestId", reqId.String())
 		c.Next()

@@ -9,16 +9,18 @@ import (
 )
 
 type Env struct {
-	SERVER_ADDR string `mapstructure:"SERVER_ADDR" validate:"required"`
-	ENVIRONMENT string `mapstructure:"ENVIRONMENT" validate:"required"`
-	PRODUCTION  bool
+	SERVER_ADDR           string `validate:"required"`
+	ENVIRONMENT           string `validate:"required"`
+	JWT_SHARED_SECRET_KEY []byte `validate:"required"`
+	PRODUCTION            bool
 }
 
 func LoadEnv(logger *slog.Logger) *Env {
 	godotenv.Load()
 	env := Env{
-		SERVER_ADDR: os.Getenv("SERVER_ADDR"),
-		ENVIRONMENT: os.Getenv("ENVIRONMENT"),
+		SERVER_ADDR:           os.Getenv("SERVER_ADDR"),
+		ENVIRONMENT:           os.Getenv("ENVIRONMENT"),
+		JWT_SHARED_SECRET_KEY: []byte(os.Getenv("JWT_SHARED_SECRET_KEY")),
 	}
 	env.PRODUCTION = env.ENVIRONMENT == "production"
 
