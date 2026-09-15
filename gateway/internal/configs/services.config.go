@@ -8,10 +8,10 @@ import (
 )
 
 type ServiceDefinition struct {
-	Host             string `mapstructure:"host" validate:"required,gte=1"`
-	Port             int    `mapstructure:"port" validate:"required,gte=1"`
-	Protocol         string `mapstructure:"protocol" validate:"required,gte=1"`
-	RequestPerMinute uint   `mapstructure:"request_per_minute" validate:"required,gte=1"`
+	Host          string `mapstructure:"host" validate:"required,gte=1"`
+	Port          int    `mapstructure:"port" validate:"required,gte=1"`
+	Protocol      string `mapstructure:"protocol" validate:"required,gte=1"`
+	RateLimitCost uint   `mapstructure:"rate_limiting_cost" validate:"required,gte=1"`
 }
 
 type ServiceConfig struct {

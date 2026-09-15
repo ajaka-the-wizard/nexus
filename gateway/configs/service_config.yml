@@ -3,19 +3,19 @@ services:
     host: "localhost"
     port: 5000
     protocol: "http"
-    request_per_minute: 15
+    rate_limiting_cost: 10
   USER_SERVICE:
     host: "localhost"
     port: 6000
     protocol: "http"
-    request_per_minute: 1
+    rate_limiting_cost: 8
   ORDER_SERVICE:
     host: "localhost"
     port: 7000
     protocol: "http"
-    request_per_minute: 50
+    rate_limiting_cost: 6
   INVENTORY_SERVICE:
     host: "localhost"
     port: 8000
     protocol: "http"
-    request_per_minute: 10
+    rate_limiting_cost: 5
