@@ -37,6 +37,7 @@ func Proxy(s *configs.ServiceConfig) gin.HandlerFunc {
 			return
 		}
 		req.Header = c.Request.Header
+		logger.Info("header ingoing", "header", req.Header)
 		req.ContentLength = c.Request.ContentLength
 
 		resp, err := client.Do(req)
@@ -53,6 +54,7 @@ func Proxy(s *configs.ServiceConfig) gin.HandlerFunc {
 			logger.Warn("Upstream service returned an error response")
 		}
 
+		logger.Info("Header Outgoing", "header", resp.Header)
 		for key, values := range resp.Header {
 			for _, value := range values {
 				c.Header(key, value)
