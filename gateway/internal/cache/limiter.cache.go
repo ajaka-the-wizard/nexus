@@ -25,11 +25,12 @@ func (r *Redis) Allow(ctx context.Context, logger *slog.Logger, key string, cost
 }
 
 func castRedisLimiterValue(logger *slog.Logger, values []any) (*domain.LimiterResponse, error) {
-	allowed, ok := values[0].(uint64)
-	remaining, ok := values[1].(float64)
-	retryAfter, ok := values[2].(float64)
-	if !ok {
-		logger.Error("Redis returned an invalid limiter retry-after value", "values", values)
+	allowed, allowedOk := values[0].(int64)
+	remaining, remainingOk := values[1].(int64)
+	retryAfter, retryAfterOk := values[2].(int64)
+
+	if !allowedOk || !remainingOk || !retryAfterOk {
+		logger.Error("Redis returned an invalid value", "values", values)
 		return nil, domain.ErrInvalidRedisReturnType
 	}
 
