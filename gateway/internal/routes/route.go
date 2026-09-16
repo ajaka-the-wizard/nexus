@@ -3,12 +3,8 @@ package routes
 import (
 	"gateway/internal/common"
 	"gateway/internal/configs"
-	"gateway/internal/domain"
 	"io"
-	"net"
 	"net/http"
-	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -19,7 +15,7 @@ func Proxy(s *configs.ServiceConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		logger := common.GetLogger(c)
 		path, _ := strings.CutPrefix(c.Request.URL.Path, "/api")
-		serviceURL, err := getServiceFromPath(path, s)
+		serviceURL, err := common.GetUrlFromPath(path, s)
 		if err != nil {
 			logger.Error("Failed to resolve upstream service for proxy request",
 				"error", err,
@@ -72,29 +68,4 @@ func Proxy(s *configs.ServiceConfig) gin.HandlerFunc {
 			return
 		}
 	}
-}
-
-func getServiceFromPath(path string, s *configs.ServiceConfig) (url.URL, error) {
-	var key string
-
-	switch {
-	case strings.HasPrefix(path, "/auth"):
-		key = domain.AUTH_ROUTES
-	case strings.HasPrefix(path, "/users"):
-		key = domain.USER_ROUTES
-	default:
-		return url.URL{}, domain.ErrNoSuchService
-	}
-	service, ok := s.Services[key]
-	if !ok {
-		return url.URL{}, domain.ErrNoSuchService
-	}
-
-	url := url.URL{
-		Scheme: service.Protocol,
-		Host:   net.JoinHostPort(service.Host, strconv.Itoa(service.Port)),
-		Path:   path,
-	}
-
-	return url, nil
 }

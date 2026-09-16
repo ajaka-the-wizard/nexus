@@ -11,3 +11,9 @@ type MinimalUserStruct struct {
 	Email string    `json:"email"`
 	jwt.RegisteredClaims
 }
+
+type LimiterResponse struct {
+	Allowed    bool
+	Remaining  uint64
+	RetryAfter uint64
+}

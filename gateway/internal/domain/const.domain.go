@@ -11,3 +11,10 @@ const (
 const (
 	USER_JWT_COOKIE_KEY string = "JWT_SECRET"
 )
+
+// Rate limiting constants
+
+const (
+	REFILL_RATE_PER_SECOND uint = 1
+	BUCKET_SIZE            uint = 60
+)
