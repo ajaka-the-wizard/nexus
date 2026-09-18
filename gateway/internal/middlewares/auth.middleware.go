@@ -14,12 +14,13 @@ import (
 )
 
 func AuthenticatePrivateRoutes(env *configs.Env, r *cache.Redis) gin.HandlerFunc {
+
 	return func(c *gin.Context) {
 		var user domain.MinimalUserStruct
 		var err error
 		logger := common.GetLogger(c)
 		now := time.Now()
-		if strings.HasPrefix(c.Request.URL.Path, "/api/auth/login") || strings.HasPrefix(c.Request.URL.Path, "/api/auth/register") || strings.HasPrefix(c.Request.URL.Path, "/api/auth/refresh") || strings.HasPrefix(c.Request.URL.Path, "/api/auth/password/reset") {
+		if checkIfPathIsAllowed(c.Request.URL.Path) {
 			c.Next()
 			return
 		}
@@ -74,4 +75,21 @@ func AuthenticatePrivateRoutes(env *configs.Env, r *cache.Redis) gin.HandlerFunc
 		c.Set("user", user)
 		c.Next()
 	}
+}
+
+func checkIfPathIsAllowed(path string) bool {
+	allowedPaths := []string{
+		"/api/auth/login",
+		"/api/auth/register",
+		"/api/auth/refresh",
+		"/api/auth/password/reset",
+		"/api/auth/password/forgot",
+	}
+
+	for _, allowedPath := range allowedPaths {
+		if strings.HasPrefix(path, allowedPath) {
+			return true
+		}
+	}
+	return false
 }
