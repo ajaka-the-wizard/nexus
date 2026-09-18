@@ -7,8 +7,8 @@ import (
 )
 
 type MinimalUserStruct struct {
-	Id    uuid.UUID `json:"id"`
-	Email string    `json:"email"`
+	UserId uuid.UUID `json:"id"`
+	Email  string    `json:"email"`
 	jwt.RegisteredClaims
 }
 

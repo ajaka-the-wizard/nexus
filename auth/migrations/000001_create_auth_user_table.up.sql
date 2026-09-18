@@ -5,10 +5,9 @@ CREATE TABLE IF NOT EXISTS users(
     full_name TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE,
     verified BOOLEAN DEFAULT FALSE,
-    paid BOOLEAN DEFAULT FALSE,
-    active BOOLEAN DEFAULT TRUE,
+    active BOOLEAN DEFAULT FALSE,
     role role_enum NOT NULL DEFAULT 'user',
-    password_hash TEXT,
+    password TEXT,
     password_updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP

@@ -1,23 +1,36 @@
 package internal
 
 import (
-	"net/http"
+	"auth/internal/cache"
+	"auth/internal/configs"
+	"auth/internal/middlewares"
+	"auth/internal/repositories"
+	"auth/internal/routes"
+	"context"
+	"log/slog"
 
 	"github.com/gin-gonic/gin"
 )
 
 func Listen() error {
+	ctx := context.Background()
+	logger := slog.Default()
+
+	env := configs.LoadEnv(logger)
+	pool := configs.ConnectDB(ctx, logger, env.DATABASE_URL)
+
+	repo := repositories.InitRepository(pool)
+	cache := cache.Initcache(ctx, env, logger)
+
 	router := gin.New()
-
 	router.Use(gin.Recovery())
-
 	router.SetTrustedProxies(nil)
 
-	router.GET("/auth/hello", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "Hello, World!",
-		})
-	})
+	router.Use(middlewares.AttachScopedLogger(env))
 
-	return router.Run(":5000")
+	g := router.Group("/auth")
+
+	routes.MountRoutes(g, repo, cache, env)
+
+	return router.Run(env.SERVER_ADDR)
 }
