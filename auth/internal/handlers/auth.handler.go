@@ -234,7 +234,7 @@ func HandleVerifyPasswordReset(env *configs.Env, cc *cache.Cache) gin.HandlerFun
 			return
 		}
 
-		var payload models.ResetPasswordPayload
+		var payload models.LoneEmailPayload
 		if err := common.VerifyJWT(c.Request.Context(), cc, resetToken, "password", env.JWT_EMAIL_SECRET, &payload); err != nil {
 			logger.Warn("Password reset verification failed", "error", err)
 			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Invalid or expired reset token"})
@@ -273,7 +273,7 @@ func HandleVerifyUser(repo *repositories.Repository, env *configs.Env, cc *cache
 			return
 		}
 
-		var payload models.ResetPasswordPayload
+		var payload models.LoneEmailPayload
 		if err := common.VerifyJWT(c.Request.Context(), cc, verificationToken, "email", env.JWT_EMAIL_SECRET, &payload); err != nil {
 			logger.Warn("Email verification failed", "error", err)
 			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Invalid or expired verification token"})

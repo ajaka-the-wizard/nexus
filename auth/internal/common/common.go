@@ -60,7 +60,7 @@ func GenerateJWT(secret string, duration float64, payload jwt.Claims) (string, t
 	switch claims := payload.(type) {
 	case *models.MinimalUserStruct:
 		claims.ExpiresAt = expiresAt
-	case *models.ResetPasswordPayload:
+	case *models.LoneEmailPayload:
 		claims.ExpiresAt = expiresAt
 	default:
 		return "", 0, fmt.Errorf("unsupported JWT claims type %T", payload)

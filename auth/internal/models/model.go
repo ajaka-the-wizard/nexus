@@ -26,10 +26,11 @@ type ForgotPasswordRequest struct {
 	Email string `json:"email" validate:"required,email"`
 }
 
-type ResetPasswordPayload struct {
+type LoneEmailPayload struct {
 	Email string `json:"email"`
 	jwt.RegisteredClaims
 }
+
 type ResetPasswordRequest struct {
 	NewPassword string `json:"new_password" validate:"required,min=8"`
 }
