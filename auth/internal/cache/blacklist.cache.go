@@ -11,11 +11,11 @@ const (
 	BLACKLISTKEY string = "BLACKLIST"
 )
 
-func (c *Cache) AddToBlacklist(ctx context.Context, identifier string, exp time.Duration) bool {
+func (c *Cache) AddToBlacklist(ctx context.Context, prefix, identifier string, exp time.Duration) bool {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	key := BLACKLISTKEY + identifier
+	key := BLACKLISTKEY + ":" + prefix + ":" + identifier
 	err := c.db.Set(ctx, key, identifier, exp).Err()
 	if err != nil {
 		return false
@@ -23,11 +23,11 @@ func (c *Cache) AddToBlacklist(ctx context.Context, identifier string, exp time.
 	return true
 }
 
-func (c *Cache) CheckBlackList(ctx context.Context, identifier string) (bool, error) {
+func (c *Cache) CheckBlackList(ctx context.Context, prefix, identifier string) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	key := BLACKLISTKEY + identifier
+	key := BLACKLISTKEY + ":" + prefix + ":" + identifier
 	err := c.db.Get(ctx, key).Err()
 	if err == redis.Nil {
 		return false, nil

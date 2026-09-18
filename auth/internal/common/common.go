@@ -15,7 +15,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -47,14 +46,36 @@ func VerifyPassword(password, encodedHash string) (bool, error) {
 	return false, err
 }
 
-func GenerateJWT(payload models.MinimalUserStruct, secret string) (string, error) {
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, payload)
-	return token.SignedString([]byte(secret))
+func HoursToDuration(hours float64) time.Duration {
+	return time.Duration(hours * float64(time.Hour))
 }
 
-func VerifyJWT(ctx context.Context, c *cache.Cache, tokenString, secret string, claims jwt.Claims) error {
-	blacklisted, err := c.CheckBlackList(ctx, TokenDigest(tokenString))
+func GenerateJWT(secret string, duration float64, payload jwt.Claims) (string, time.Duration, error) {
+	if duration <= 0 {
+		return "", 0, fmt.Errorf("JWT duration must be greater than zero")
+	}
+
+	tokenDuration := HoursToDuration(duration)
+	expiresAt := jwt.NewNumericDate(time.Now().Add(tokenDuration))
+	switch claims := payload.(type) {
+	case *models.MinimalUserStruct:
+		claims.ExpiresAt = expiresAt
+	case *models.ResetPasswordPayload:
+		claims.ExpiresAt = expiresAt
+	default:
+		return "", 0, fmt.Errorf("unsupported JWT claims type %T", payload)
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, payload)
+	signedToken, err := token.SignedString([]byte(secret))
+	if err != nil {
+		return "", 0, err
+	}
+	return signedToken, tokenDuration, nil
+}
+
+func VerifyJWT(ctx context.Context, c *cache.Cache, tokenString, prefix, secret string, claims jwt.Claims) error {
+	blacklisted, err := c.CheckBlackList(ctx, prefix, TokenDigest(tokenString))
 	if err != nil {
 		return err
 	}
@@ -89,27 +110,12 @@ func SetCookie(c *gin.Context, name, value string, maxAge int, secure bool) {
 }
 
 func HandleLoginActivity(c *gin.Context, payload models.MinimalUserStruct, env *configs.Env) error {
-	sessionDuration := time.Duration(env.JWT_SESSION_DURATION * float64(time.Hour))
-	refreshDuration := time.Duration(env.JWT_REFRESH_KEY_DURATION * float64(time.Hour))
-
-	payload.ExpiresAt = jwt.NewNumericDate(time.Now().Add(sessionDuration))
-	sessionJTI, err := uuid.NewV7()
-	if err != nil {
-		return err
-	}
-	payload.ID = sessionJTI.String()
-	sessionToken, err := GenerateJWT(payload, env.JWT_SHARED_SECRET_KEY)
+	sessionToken, sessionDuration, err := GenerateJWT(env.JWT_SHARED_SECRET_KEY, env.JWT_SESSION_DURATION, &payload)
 	if err != nil {
 		return err
 	}
 
-	payload.ExpiresAt = jwt.NewNumericDate(time.Now().Add(refreshDuration))
-	refreshJTI, err := uuid.NewV7()
-	if err != nil {
-		return err
-	}
-	payload.ID = refreshJTI.String()
-	refreshToken, err := GenerateJWT(payload, env.JWT_REFRESH_KEY)
+	refreshToken, refreshDuration, err := GenerateJWT(env.JWT_REFRESH_KEY, env.JWT_REFRESH_KEY_DURATION, &payload)
 	if err != nil {
 		return err
 	}
@@ -137,30 +143,33 @@ func TokenDigest(token string) string {
 	return hex.EncodeToString(digest[:])
 }
 
-func BlacklistTokens(ctx context.Context, c *cache.Cache, sessionDigest, refreshDigest string, sessionDuration, refreshDuration time.Duration) error {
-	if sessionDigest != "" && !c.AddToBlacklist(ctx, sessionDigest, sessionDuration) {
-		return fmt.Errorf("failed to blacklist session token")
-	}
-	if refreshDigest != "" && !c.AddToBlacklist(ctx, refreshDigest, refreshDuration) {
-		return fmt.Errorf("failed to blacklist refresh token")
+func BlacklistToken(ctx context.Context, c *cache.Cache, token, prefix string, duration time.Duration) error {
+	if !c.AddToBlacklist(ctx, prefix, TokenDigest(token), duration) {
+		return errs.ERR_BLACKLIST_TOKEN_FAILURE
 	}
 	return nil
 }
 
-func HandleLogoutActivity(c *gin.Context, blacklist *cache.Cache, env *configs.Env) error {
+func HandleLogoutActivity(c *gin.Context, cc *cache.Cache, env *configs.Env) error {
 	sessionToken, _ := c.Cookie("JWT_SECRET")
 	refreshToken, _ := c.Cookie("JWT_REFRESH_SECRET")
-	sessionDuration := time.Duration(env.JWT_SESSION_DURATION * float64(time.Hour))
-	refreshDuration := time.Duration(env.JWT_REFRESH_KEY_DURATION * float64(time.Hour))
 
-	if err := BlacklistTokens(
-		c.Request.Context(),
-		blacklist,
-		TokenDigest(sessionToken),
-		TokenDigest(refreshToken),
-		sessionDuration,
-		refreshDuration,
-	); err != nil {
+	if sessionToken == "" && refreshToken == "" {
+		return errs.ERR_NO_TOKENS_PROVIDED
+	}
+
+	var sessionClaims models.MinimalUserStruct
+	if err := VerifyJWT(c.Request.Context(), cc, sessionToken, "session", env.JWT_SHARED_SECRET_KEY, &sessionClaims); err != nil {
+		return err
+	}
+	if err := BlacklistToken(c.Request.Context(), cc, sessionToken, "session", time.Until(sessionClaims.ExpiresAt.Time)); err != nil {
+		return err
+	}
+	var refreshClaims models.MinimalUserStruct
+	if err := VerifyJWT(c.Request.Context(), cc, refreshToken, "refresh", env.JWT_REFRESH_KEY, &refreshClaims); err != nil {
+		return err
+	}
+	if err := BlacklistToken(c.Request.Context(), cc, refreshToken, "refresh", time.Until(refreshClaims.ExpiresAt.Time)); err != nil {
 		return err
 	}
 

@@ -21,3 +21,12 @@ type MinimalUserStruct struct {
 	Email  string    `json:"email"`
 	jwt.RegisteredClaims
 }
+
+type ForgotPasswordRequest struct {
+	Email string `json:"email" validate:"required,email"`
+}
+
+type ResetPasswordPayload struct {
+	Email string `json:"email"`
+	jwt.RegisteredClaims
+}

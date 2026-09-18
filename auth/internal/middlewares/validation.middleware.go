@@ -70,3 +70,33 @@ func ValidateLoginRequest() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+func ValidateForgotPasswordRequest() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		logger := common.GetLogger(c)
+		var request models.ForgotPasswordRequest
+		if err := c.ShouldBindJSON(&request); err != nil {
+			logger.Warn("Request provided an invalid password reset body", "error", err)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "Invalid request body",
+			})
+			c.Abort()
+			return
+		}
+
+		if err := validate.Struct(request); err != nil {
+			logger.Warn("Request provided invalid password reset details", "error", err)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"success": false,
+				"message": "Invalid request details",
+			})
+			c.Abort()
+			return
+		}
+
+		logger.Info("Successfully validated password reset request")
+		c.Set("forgotPasswordRequest", request)
+		c.Next()
+	}
+}

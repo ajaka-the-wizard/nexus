@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -133,7 +134,7 @@ func HandleRefresh(env *configs.Env, cc *cache.Cache) gin.HandlerFunc {
 		}
 
 		var payload models.MinimalUserStruct
-		err = common.VerifyJWT(c.Request.Context(), cc, refreshToken, env.JWT_REFRESH_KEY, &payload)
+		err = common.VerifyJWT(c.Request.Context(), cc, refreshToken, "refresh", env.JWT_REFRESH_KEY, &payload)
 		if errors.Is(err, errs.ERR_INVALID_METHOD) {
 			logger.Warn("Refresh request provided a token with an invalid signing method")
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid refresh token"})
@@ -160,6 +161,16 @@ func HandleLogout(env *configs.Env, cc *cache.Cache) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		logger := common.GetLogger(c)
 		if err := common.HandleLogoutActivity(c, cc, env); err != nil {
+			if errors.Is(err, errs.ERR_INVALID_METHOD) || errors.Is(err, errs.ERR_NO_TOKENS_PROVIDED) {
+				logger.Warn("Logout request provided a token with an invalid signing method")
+				c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid or missing token"})
+				return
+			}
+			if errors.Is(err, errs.ERR_BLACKLISTED_TOKEN) {
+				logger.Warn("Logout request provided a blacklisted token")
+				c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+				return
+			}
 			logger.Error("Failed to blacklist logout tokens", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Something went wrong"})
 			return
@@ -167,5 +178,69 @@ func HandleLogout(env *configs.Env, cc *cache.Cache) gin.HandlerFunc {
 
 		logger.Info("Successfully logged out user")
 		c.JSON(http.StatusOK, gin.H{"success": true, "message": "Logout successful"})
+	}
+}
+
+func HandleForgotPassword(repo *repositories.Repository) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		logger := common.GetLogger(c)
+		value, exists := c.Get("forgotPasswordRequest")
+		if !exists {
+			logger.Error("Forgot password request was not found in context")
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Something went wrong"})
+			return
+		}
+
+		req, ok := value.(models.ForgotPasswordRequest)
+		if !ok {
+			logger.Error("Forgot password request has an invalid context type", "type", fmt.Sprintf("%T", value))
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Something went wrong"})
+			return
+		}
+
+		_, err := repo.GetUserByEmail(c.Request.Context(), req.Email)
+		if err != nil && !errors.Is(err, errs.ERR_EMAIL_NO_EXISTS) {
+			logger.Error("Failed to check email for password reset", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Something went wrong"})
+			return
+		}
+		if err == nil {
+			// TODO: Send the password reset URL to the email service through Kafka.
+			logger.Info("Password reset requested for existing user")
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "An email has been sent with instructions to reset your password.",
+		})
+	}
+}
+
+func HandleVerifyPasswordReset(env *configs.Env, cc *cache.Cache) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		logger := common.GetLogger(c)
+		resetToken := c.Query("val")
+		if resetToken == "" {
+			logger.Warn("Password reset verification request missing token")
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid reset token"})
+			return
+		}
+
+		var payload models.ResetPasswordPayload
+		if err := common.VerifyJWT(c.Request.Context(), cc, resetToken, "email", env.JWT_EMAIL_SECRET, &payload); err != nil {
+			logger.Warn("Password reset verification failed", "error", err)
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Invalid or expired reset token"})
+			return
+		}
+
+		remaining := time.Until(payload.ExpiresAt.Time)
+		if err := common.BlacklistToken(c.Request.Context(), cc, resetToken, "email", remaining); err != nil {
+			logger.Error("Failed to blacklist password reset token", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Something went wrong"})
+			return
+		}
+
+		logger.Info("Successfully verified password reset token")
+		c.JSON(http.StatusOK, gin.H{"success": true, "message": "Password reset token verified"})
 	}
 }

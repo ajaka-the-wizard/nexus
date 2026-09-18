@@ -19,7 +19,7 @@ func AuthenticatePrivateRoutes(env *configs.Env, r *cache.Redis) gin.HandlerFunc
 		var err error
 		logger := common.GetLogger(c)
 		now := time.Now()
-		if strings.HasPrefix(c.Request.URL.Path, "/api/auth/login") || strings.HasPrefix(c.Request.URL.Path, "/api/auth/register") || strings.HasPrefix(c.Request.URL.Path, "/api/auth/refresh") {
+		if strings.HasPrefix(c.Request.URL.Path, "/api/auth/login") || strings.HasPrefix(c.Request.URL.Path, "/api/auth/register") || strings.HasPrefix(c.Request.URL.Path, "/api/auth/refresh") || strings.HasPrefix(c.Request.URL.Path, "/api/auth/password/reset") {
 			c.Next()
 			return
 		}
@@ -35,7 +35,7 @@ func AuthenticatePrivateRoutes(env *configs.Env, r *cache.Redis) gin.HandlerFunc
 			}
 		}
 
-		blacklisted, err := r.CheckBlackList(c.Request.Context(), common.TokenDigest(secret))
+		blacklisted, err := r.CheckBlackList(c.Request.Context(), "session", common.TokenDigest(secret))
 		if err != nil {
 			logger.Error("Failed to check JWT blacklist", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Something went wrong"})

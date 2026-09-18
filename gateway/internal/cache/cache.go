@@ -16,11 +16,11 @@ type Redis struct {
 
 const blacklistKey = "BLACKLIST"
 
-func (r *Redis) CheckBlackList(ctx context.Context, identifier string) (bool, error) {
+func (r *Redis) CheckBlackList(ctx context.Context, prefix, identifier string) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	_, err := r.rdb.Get(ctx, blacklistKey+identifier).Result()
+	_, err := r.rdb.Get(ctx, blacklistKey+":"+prefix+":"+identifier).Result()
 	if err == redis.Nil {
 		return false, nil
 	}
