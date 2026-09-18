@@ -14,7 +14,7 @@ type User struct {
 	Paid              bool      `json:"paid" db:"paid" redis:"paid"`
 	Active            bool      `json:"active" db:"active" redis:"active"`
 	Role              string    `json:"role" db:"role" redis:"role"`
-	PasswordHash      string    `json:"-" db:"password_hash" redis:"password_hash"`
+	Password          string    `json:"-" db:"password" redis:"password"`
 	PasswordUpdatedAt time.Time `json:"-" db:"password_updated_at" redis:"password_updated_at"`
 	CreatedAt         time.Time `json:"created_at" db:"created_at" redis:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at" db:"updated_at" redis:"updated_at"`

@@ -37,7 +37,7 @@ func Listen() error {
 	router.Use(middlewares.GenerateRequestID())
 	router.Use(middlewares.AttachScopedLogger(env))
 	router.Use(middlewares.RateLimit(cfg, c))
-	router.Use(middlewares.AuthenticatePrivateRoutes(env))
+	router.Use(middlewares.AuthenticatePrivateRoutes(env, c))
 
 	router.Use(routes.Proxy(cfg))
 

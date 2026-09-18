@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"gateway/internal/cache"
 	"gateway/internal/common"
 	"gateway/internal/configs"
 	"gateway/internal/domain"
@@ -12,13 +13,14 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func AuthenticatePrivateRoutes(env *configs.Env) gin.HandlerFunc {
+func AuthenticatePrivateRoutes(env *configs.Env, r *cache.Redis) gin.HandlerFunc {
+
 	return func(c *gin.Context) {
 		var user domain.MinimalUserStruct
 		var err error
 		logger := common.GetLogger(c)
 		now := time.Now()
-		if strings.HasPrefix(c.Request.URL.Path, "/api/auth/login") || strings.HasPrefix(c.Request.URL.Path, "/api/auth/register") || strings.HasPrefix(c.Request.URL.Path, "/api/auth/refresh") {
+		if checkIfPathIsAllowed(c.Request.URL.Path) {
 			c.Next()
 			return
 		}
@@ -32,6 +34,20 @@ func AuthenticatePrivateRoutes(env *configs.Env) gin.HandlerFunc {
 				c.Abort()
 				return
 			}
+		}
+
+		blacklisted, err := r.CheckBlackList(c.Request.Context(), "session", common.TokenDigest(secret))
+		if err != nil {
+			logger.Error("Failed to check JWT blacklist", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Something went wrong"})
+			c.Abort()
+			return
+		}
+		if blacklisted {
+			logger.Warn("Request provided a blacklisted JWT")
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+			c.Abort()
+			return
 		}
 
 		token, err := jwt.ParseWithClaims(secret, &user, func(token *jwt.Token) (any, error) {
@@ -59,4 +75,21 @@ func AuthenticatePrivateRoutes(env *configs.Env) gin.HandlerFunc {
 		c.Set("user", user)
 		c.Next()
 	}
+}
+
+func checkIfPathIsAllowed(path string) bool {
+	allowedPaths := []string{
+		"/api/auth/login",
+		"/api/auth/register",
+		"/api/auth/refresh",
+		"/api/auth/password/reset",
+		"/api/auth/password/forgot",
+	}
+
+	for _, allowedPath := range allowedPaths {
+		if strings.HasPrefix(path, allowedPath) {
+			return true
+		}
+	}
+	return false
 }

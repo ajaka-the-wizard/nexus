@@ -14,6 +14,23 @@ type Redis struct {
 	s   *redis.Script
 }
 
+const blacklistKey = "BLACKLIST"
+
+func (r *Redis) CheckBlackList(ctx context.Context, prefix, identifier string) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	_, err := r.rdb.Get(ctx, blacklistKey+":"+prefix+":"+identifier).Result()
+	if err == redis.Nil {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
 func InitializeRedis(ctx context.Context, env *configs.Env, logger *slog.Logger) *Redis {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
