@@ -59,6 +59,7 @@ func HandleRegister(repo *repositories.Repository) gin.HandlerFunc {
 			return
 
 		}
+		// TODO: Generate the email verification JWT, build the verification URL, and publish it to Kafka.
 		logger.Info("Successfully registered user", "email", request.Email)
 		c.JSON(http.StatusCreated, gin.H{"success": true, "message": "Registration request accepted"})
 	}
@@ -90,6 +91,12 @@ func HandleLogin(repo *repositories.Repository, env *configs.Env) gin.HandlerFun
 			}
 			logger.Error("Failed to retrieve user for login", "email", request.Email, "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Something went wrong"})
+			return
+		}
+
+		if !user.Verified || !user.Active {
+			logger.Warn("Login attempted with an unverified or inactive account", "email", request.Email)
+			c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "Please verify your email or contact support"})
 			return
 		}
 
@@ -228,14 +235,14 @@ func HandleVerifyPasswordReset(env *configs.Env, cc *cache.Cache) gin.HandlerFun
 		}
 
 		var payload models.ResetPasswordPayload
-		if err := common.VerifyJWT(c.Request.Context(), cc, resetToken, "email", env.JWT_EMAIL_SECRET, &payload); err != nil {
+		if err := common.VerifyJWT(c.Request.Context(), cc, resetToken, "password", env.JWT_EMAIL_SECRET, &payload); err != nil {
 			logger.Warn("Password reset verification failed", "error", err)
 			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Invalid or expired reset token"})
 			return
 		}
 
 		remaining := time.Until(payload.ExpiresAt.Time)
-		if err := common.BlacklistToken(c.Request.Context(), cc, resetToken, "email", remaining); err != nil {
+		if err := common.BlacklistToken(c.Request.Context(), cc, resetToken, "password", remaining); err != nil {
 			logger.Error("Failed to blacklist password reset token", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Something went wrong"})
 			return
@@ -253,6 +260,46 @@ func HandleVerifyPasswordReset(env *configs.Env, cc *cache.Cache) gin.HandlerFun
 
 		logger.Info("Successfully verified password reset token")
 		c.JSON(http.StatusOK, gin.H{"success": true, "message": "Password reset token verified"})
+	}
+}
+
+func HandleVerifyUser(repo *repositories.Repository, env *configs.Env, cc *cache.Cache) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		logger := common.GetLogger(c)
+		verificationToken := c.Query("val")
+		if verificationToken == "" {
+			logger.Warn("Email verification request missing token")
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid verification token"})
+			return
+		}
+
+		var payload models.ResetPasswordPayload
+		if err := common.VerifyJWT(c.Request.Context(), cc, verificationToken, "email", env.JWT_EMAIL_SECRET, &payload); err != nil {
+			logger.Warn("Email verification failed", "error", err)
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Invalid or expired verification token"})
+			return
+		}
+
+		if err := repo.VerifyUser(c.Request.Context(), payload.Email); err != nil {
+			if errors.Is(err, errs.ERR_EMAIL_NO_EXISTS) {
+				logger.Warn("Email verification requested for a missing or already verified user")
+				c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "User not found"})
+				return
+			}
+			logger.Error("Failed to verify user email", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Something went wrong"})
+			return
+		}
+
+		remaining := time.Until(payload.ExpiresAt.Time)
+		if err := common.BlacklistToken(c.Request.Context(), cc, verificationToken, "email", remaining); err != nil {
+			logger.Error("Failed to blacklist email verification token", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Something went wrong"})
+			return
+		}
+
+		logger.Info("Successfully verified user email")
+		c.JSON(http.StatusOK, gin.H{"success": true, "message": "Email verified successfully"})
 	}
 }
 

@@ -67,6 +67,25 @@ func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*models.
 	return &user, nil
 }
 
+func (r *Repository) VerifyUser(ctx context.Context, email string) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	result, err := r.pool.Exec(ctx, `
+		UPDATE users
+		SET verified = TRUE, active = TRUE
+		WHERE email = $1 AND verified = FALSE AND active = FALSE
+	`, email)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return errs.ERR_EMAIL_NO_EXISTS
+	}
+
+	return nil
+}
+
 func (r *Repository) ResetPassword(ctx context.Context, email string, request *models.ResetPasswordRequest) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
