@@ -122,7 +122,7 @@ func HandleLogin(repo *repositories.Repository, env *configs.Env) gin.HandlerFun
 	}
 }
 
-func HandleRefresh(env *configs.Env) gin.HandlerFunc {
+func HandleRefresh(env *configs.Env, cc *cache.Cache) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		logger := common.GetLogger(c)
 		refreshToken, err := c.Cookie("JWT_REFRESH_SECRET")
@@ -133,7 +133,7 @@ func HandleRefresh(env *configs.Env) gin.HandlerFunc {
 		}
 
 		var payload models.MinimalUserStruct
-		err = common.VerifyJWT(refreshToken, env.JWT_REFRESH_KEY, &payload)
+		err = common.VerifyJWT(c.Request.Context(), cc, refreshToken, env.JWT_REFRESH_KEY, &payload)
 		if errors.Is(err, errs.ERR_INVALID_METHOD) {
 			logger.Warn("Refresh request provided a token with an invalid signing method")
 			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid refresh token"})
@@ -156,10 +156,10 @@ func HandleRefresh(env *configs.Env) gin.HandlerFunc {
 	}
 }
 
-func HandleLogout(env *configs.Env, blacklist *cache.Cache) gin.HandlerFunc {
+func HandleLogout(env *configs.Env, cc *cache.Cache) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		logger := common.GetLogger(c)
-		if err := common.HandleLogoutActivity(c, blacklist, env); err != nil {
+		if err := common.HandleLogoutActivity(c, cc, env); err != nil {
 			logger.Error("Failed to blacklist logout tokens", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Something went wrong"})
 			return

@@ -6,6 +6,8 @@ import (
 	"auth/internal/errs"
 	"auth/internal/models"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -51,7 +53,15 @@ func GenerateJWT(payload models.MinimalUserStruct, secret string) (string, error
 	return token.SignedString([]byte(secret))
 }
 
-func VerifyJWT(tokenString, secret string, claims jwt.Claims) error {
+func VerifyJWT(ctx context.Context, c *cache.Cache, tokenString, secret string, claims jwt.Claims) error {
+	blacklisted, err := c.CheckBlackList(ctx, TokenDigest(tokenString))
+	if err != nil {
+		return err
+	}
+	if blacklisted {
+		return errs.ERR_BLACKLISTED_TOKEN
+	}
+
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errs.ERR_INVALID_METHOD
@@ -122,11 +132,16 @@ func HandleLoginActivity(c *gin.Context, payload models.MinimalUserStruct, env *
 	return nil
 }
 
-func BlacklistTokens(ctx context.Context, blacklist *cache.Cache, sessionToken, refreshToken string, sessionDuration, refreshDuration time.Duration) error {
-	if sessionToken != "" && !blacklist.AddToBlacklist(ctx, sessionToken, sessionDuration) {
+func TokenDigest(token string) string {
+	digest := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(digest[:])
+}
+
+func BlacklistTokens(ctx context.Context, c *cache.Cache, sessionDigest, refreshDigest string, sessionDuration, refreshDuration time.Duration) error {
+	if sessionDigest != "" && !c.AddToBlacklist(ctx, sessionDigest, sessionDuration) {
 		return fmt.Errorf("failed to blacklist session token")
 	}
-	if refreshToken != "" && !blacklist.AddToBlacklist(ctx, refreshToken, refreshDuration) {
+	if refreshDigest != "" && !c.AddToBlacklist(ctx, refreshDigest, refreshDuration) {
 		return fmt.Errorf("failed to blacklist refresh token")
 	}
 	return nil
@@ -141,8 +156,8 @@ func HandleLogoutActivity(c *gin.Context, blacklist *cache.Cache, env *configs.E
 	if err := BlacklistTokens(
 		c.Request.Context(),
 		blacklist,
-		sessionToken,
-		refreshToken,
+		TokenDigest(sessionToken),
+		TokenDigest(refreshToken),
 		sessionDuration,
 		refreshDuration,
 	); err != nil {

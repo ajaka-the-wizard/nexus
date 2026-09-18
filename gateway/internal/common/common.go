@@ -1,6 +1,8 @@
 package common
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"gateway/internal/configs"
 	"gateway/internal/domain"
 	"log/slog"
@@ -19,6 +21,11 @@ func GetLogger(c *gin.Context) *slog.Logger {
 		}
 	}
 	return slog.Default()
+}
+
+func TokenDigest(token string) string {
+	digest := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(digest[:])
 }
 
 func GetServiceFromServiceConfig(cfg *configs.ServiceConfig, path string) (*configs.ServiceDefinition, string, error) {

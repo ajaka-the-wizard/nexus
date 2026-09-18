@@ -35,6 +35,20 @@ func AuthenticatePrivateRoutes(env *configs.Env, r *cache.Redis) gin.HandlerFunc
 			}
 		}
 
+		blacklisted, err := r.CheckBlackList(c.Request.Context(), common.TokenDigest(secret))
+		if err != nil {
+			logger.Error("Failed to check JWT blacklist", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Something went wrong"})
+			c.Abort()
+			return
+		}
+		if blacklisted {
+			logger.Warn("Request provided a blacklisted JWT")
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+			c.Abort()
+			return
+		}
+
 		token, err := jwt.ParseWithClaims(secret, &user, func(token *jwt.Token) (any, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, domain.ErrInvalidMethod
@@ -51,20 +65,6 @@ func AuthenticatePrivateRoutes(env *configs.Env, r *cache.Redis) gin.HandlerFunc
 
 		if user.ExpiresAt == nil || user.ExpiresAt.Time.Before(now) {
 			logger.Warn("Request provided expired JWT")
-			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
-			c.Abort()
-			return
-		}
-
-		blacklisted, err := r.CheckBlackList(c.Request.Context(), user.ID)
-		if err != nil {
-			logger.Error("Failed to check JWT blacklist", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Something went wrong"})
-			c.Abort()
-			return
-		}
-		if blacklisted {
-			logger.Warn("Request provided a blacklisted JWT")
 			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
 			c.Abort()
 			return
