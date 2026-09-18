@@ -64,6 +64,13 @@ func VerifyJWT(tokenString, secret string, claims jwt.Claims) error {
 	if !token.Valid {
 		return jwt.ErrTokenInvalidClaims
 	}
+	expiresAt, err := claims.GetExpirationTime()
+	if err != nil {
+		return err
+	}
+	if expiresAt == nil || expiresAt.Time.Before(time.Now()) {
+		return jwt.ErrTokenExpired
+	}
 	return nil
 }
 
@@ -81,7 +88,7 @@ func HandleLoginActivity(c *gin.Context, payload models.MinimalUserStruct, env *
 		return err
 	}
 	payload.ID = sessionJTI.String()
-	sessionToken, err := GenerateJWT(payload, env.JWT_SHARED_KEY)
+	sessionToken, err := GenerateJWT(payload, env.JWT_SHARED_SECRET_KEY)
 	if err != nil {
 		return err
 	}

@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"gateway/internal/cache"
 	"gateway/internal/common"
 	"gateway/internal/configs"
 	"gateway/internal/domain"
@@ -12,7 +13,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func AuthenticatePrivateRoutes(env *configs.Env) gin.HandlerFunc {
+func AuthenticatePrivateRoutes(env *configs.Env, r *cache.Redis) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var user domain.MinimalUserStruct
 		var err error
@@ -50,6 +51,20 @@ func AuthenticatePrivateRoutes(env *configs.Env) gin.HandlerFunc {
 
 		if user.ExpiresAt == nil || user.ExpiresAt.Time.Before(now) {
 			logger.Warn("Request provided expired JWT")
+			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+			c.Abort()
+			return
+		}
+
+		blacklisted, err := r.CheckBlackList(c.Request.Context(), user.ID)
+		if err != nil {
+			logger.Error("Failed to check JWT blacklist", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Something went wrong"})
+			c.Abort()
+			return
+		}
+		if blacklisted {
+			logger.Warn("Request provided a blacklisted JWT")
 			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
 			c.Abort()
 			return

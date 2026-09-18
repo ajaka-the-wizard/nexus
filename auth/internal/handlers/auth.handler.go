@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -135,8 +134,13 @@ func HandleRefresh(env *configs.Env) gin.HandlerFunc {
 
 		var payload models.MinimalUserStruct
 		err = common.VerifyJWT(refreshToken, env.JWT_REFRESH_KEY, &payload)
-		if err != nil || payload.ExpiresAt == nil || payload.ExpiresAt.Time.Before(time.Now()) {
-			logger.Warn("Refresh request provided an invalid refresh token", "error", err)
+		if errors.Is(err, errs.ERR_INVALID_METHOD) {
+			logger.Warn("Refresh request provided a token with an invalid signing method")
+			c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "Invalid refresh token"})
+			return
+		}
+		if err != nil {
+			logger.Warn("Refresh request provided an invalid or expired refresh token", "error", err)
 			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
 			return
 		}

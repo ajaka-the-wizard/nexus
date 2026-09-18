@@ -13,7 +13,7 @@ type Env struct {
 	DATABASE_URL             string  `validate:"required"`
 	SERVER_ADDR              string  `validate:"required"`
 	ENVIRONMENT              string  `validate:"required"`
-	JWT_SHARED_KEY           string  `validate:"required"`
+	JWT_SHARED_SECRET_KEY    string  `validate:"required"`
 	JWT_REFRESH_KEY          string  `validate:"required"`
 	JWT_SESSION_DURATION     float64 `validate:"required,gt=0"`
 	JWT_REFRESH_KEY_DURATION float64 `validate:"required,gt=0"`
@@ -26,13 +26,13 @@ func LoadEnv(logger *slog.Logger) *Env {
 	godotenv.Load()
 
 	env := Env{
-		DATABASE_URL:    os.Getenv("DATABASE_URL"),
-		SERVER_ADDR:     os.Getenv("SERVER_ADDR"),
-		ENVIRONMENT:     os.Getenv("ENVIRONMENT"),
-		JWT_SHARED_KEY:  os.Getenv("JWT_SHARED_KEY"),
-		JWT_REFRESH_KEY: os.Getenv("JWT_REFRESH_KEY"),
-		REDIS_ADDR:      os.Getenv("REDIS_ADDR"),
-		REDIS_PASSWORD:  os.Getenv("REDIS_PASSWORD"),
+		DATABASE_URL:          os.Getenv("DATABASE_URL"),
+		SERVER_ADDR:           os.Getenv("SERVER_ADDR"),
+		ENVIRONMENT:           os.Getenv("ENVIRONMENT"),
+		JWT_SHARED_SECRET_KEY: os.Getenv("JWT_SHARED_SECRET_KEY"),
+		JWT_REFRESH_KEY:       os.Getenv("JWT_REFRESH_KEY"),
+		REDIS_ADDR:            os.Getenv("REDIS_ADDR"),
+		REDIS_PASSWORD:        os.Getenv("REDIS_PASSWORD"),
 	}
 
 	env.PRODUCTION = env.ENVIRONMENT == "production"
