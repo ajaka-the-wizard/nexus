@@ -17,4 +17,5 @@ func MountRoutes(rg *gin.RouterGroup, repo *repositories.Repository, c *cache.Ca
 	rg.POST("/logout", handlers.HandleLogout(env, c))
 	rg.POST("/password/forgot", middlewares.ValidateForgotPasswordRequest(), handlers.HandleForgotPassword(repo))
 	rg.GET("/password/reset", handlers.HandleVerifyPasswordReset(env, c))
+	rg.POST("/password/reset", middlewares.ValidateResetPasswordRequest(), handlers.HandleResetPassword(repo, env))
 }

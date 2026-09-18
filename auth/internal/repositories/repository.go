@@ -10,11 +10,14 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Repository struct {
 	pool *pgxpool.Pool
 }
+
+const passwordResetCooldown = 10 * 24 * time.Hour
 
 func InitRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{
@@ -62,4 +65,91 @@ func (r *Repository) GetUserByEmail(ctx context.Context, email string) (*models.
 	}
 
 	return &user, nil
+}
+
+func (r *Repository) ResetPassword(ctx context.Context, email string, request *models.ResetPasswordRequest) error {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var user models.User
+	query := `
+	SELECT id, password, password_updated_at
+	FROM users
+	WHERE email = $1
+	FOR UPDATE
+	`
+	if err := tx.QueryRow(ctx, query, email).Scan(
+		&user.Id,
+		&user.Password,
+		&user.PasswordUpdatedAt,
+	); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return errs.ERR_EMAIL_NO_EXISTS
+		}
+		return err
+	}
+	if time.Since(user.PasswordUpdatedAt) < passwordResetCooldown {
+		return errs.ERR_PASSWORD_RESET_COOLDOWN
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(request.NewPassword)); err == nil {
+		return errs.ERR_PASSWORD_REUSED
+	} else if err != bcrypt.ErrMismatchedHashAndPassword {
+		return err
+	}
+
+	historyRows, err := tx.Query(ctx, `
+		SELECT password
+		FROM password_history
+		WHERE user_id = $1
+	`, user.Id)
+	if err != nil {
+		return err
+	}
+	defer historyRows.Close()
+
+	for historyRows.Next() {
+		var passwordHash string
+		if err := historyRows.Scan(&passwordHash); err != nil {
+			return err
+		}
+		if err := bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(request.NewPassword)); err == nil {
+			return errs.ERR_PASSWORD_REUSED
+		} else if err != bcrypt.ErrMismatchedHashAndPassword {
+			return err
+		}
+	}
+	if err := historyRows.Err(); err != nil {
+		return err
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(request.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO password_history (user_id, password, created_at)
+		VALUES ($1, $2, $3)
+	`, user.Id, user.Password, user.PasswordUpdatedAt)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(ctx, `
+		UPDATE users
+		SET password = $1, password_updated_at = CURRENT_TIMESTAMP
+		WHERE id = $2
+	`, string(hashedPassword), user.Id)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }

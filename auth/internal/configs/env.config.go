@@ -22,6 +22,7 @@ type Env struct {
 	RESET_PASSWORD_URL       string  `validate:"required"`
 	JWT_EMAIL_SECRET         string  `validate:"required"`
 	JWT_EMAIL_DURATION       float64 `validate:"required,gt=0"`
+	COOKIE_SECRET            string  `validate:"required"`
 	PRODUCTION               bool
 }
 
@@ -37,6 +38,7 @@ func LoadEnv(logger *slog.Logger) *Env {
 		REDIS_ADDR:            os.Getenv("REDIS_ADDR"),
 		REDIS_PASSWORD:        os.Getenv("REDIS_PASSWORD"),
 		JWT_EMAIL_SECRET:      os.Getenv("JWT_EMAIL_SECRET"),
+		COOKIE_SECRET:         os.Getenv("COOKIE_SECRET"),
 		RESET_PASSWORD_URL:    os.Getenv("RESET_PASSWORD_URL"),
 	}
 

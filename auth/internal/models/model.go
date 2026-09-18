@@ -30,3 +30,6 @@ type ResetPasswordPayload struct {
 	Email string `json:"email"`
 	jwt.RegisteredClaims
 }
+type ResetPasswordRequest struct {
+	NewPassword string `json:"new_password" validate:"required,min=8"`
+}

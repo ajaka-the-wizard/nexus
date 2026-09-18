@@ -10,4 +10,6 @@ var (
 	ERR_BLACKLIST_TOKEN_FAILURE = errors.New("Failed to blacklist JWT token")
 	ERR_KEY_DOES_NOT_EXIST      = errors.New("The requested key does not exist")
 	ERR_NO_TOKENS_PROVIDED      = errors.New("No tokens were provided in the request")
+	ERR_PASSWORD_REUSED         = errors.New("Password was used previously")
+	ERR_PASSWORD_RESET_COOLDOWN = errors.New("Password reset is not available yet")
 )
