@@ -1,7 +1,7 @@
 package middlewares
 
 import (
-	"auth/common"
+	"auth/internal/common"
 	"auth/internal/models"
 	"net/http"
 

@@ -19,6 +19,9 @@ type Env struct {
 	JWT_REFRESH_KEY_DURATION float64 `validate:"required,gt=0"`
 	REDIS_ADDR               string  `validate:"required"`
 	REDIS_PASSWORD           string
+	RESET_PASSWORD_URL       string  `validate:"required"`
+	JWT_EMAIL_SECRET         string  `validate:"required"`
+	JWT_EMAIL_DURATION       float64 `validate:"required,gt=0"`
 	PRODUCTION               bool
 }
 
@@ -33,15 +36,10 @@ func LoadEnv(logger *slog.Logger) *Env {
 		JWT_REFRESH_KEY:       os.Getenv("JWT_REFRESH_KEY"),
 		REDIS_ADDR:            os.Getenv("REDIS_ADDR"),
 		REDIS_PASSWORD:        os.Getenv("REDIS_PASSWORD"),
+		JWT_EMAIL_SECRET:      os.Getenv("JWT_EMAIL_SECRET"),
 	}
 
 	env.PRODUCTION = env.ENVIRONMENT == "production"
-
-	v := validator.New()
-	if err := v.Struct(&env); err != nil {
-		logger.Error("Environment validation failed", "error", err)
-		os.Exit(1)
-	}
 
 	var err error
 	env.JWT_SESSION_DURATION, err = strconv.ParseFloat(os.Getenv("JWT_SESSION_DURATION"), 64)
@@ -52,6 +50,17 @@ func LoadEnv(logger *slog.Logger) *Env {
 	env.JWT_REFRESH_KEY_DURATION, err = strconv.ParseFloat(os.Getenv("JWT_REFRESH_KEY_DURATION"), 64)
 	if err != nil {
 		logger.Error("Invalid JWT refresh duration", "error", err)
+		os.Exit(1)
+	}
+	env.JWT_EMAIL_DURATION, err = strconv.ParseFloat(os.Getenv("JWT_EMAIL_DURATION"), 64)
+	if err != nil {
+		logger.Error("Invalid JWT email duration", "error", err)
+		os.Exit(1)
+	}
+
+	v := validator.New()
+	if err := v.Struct(&env); err != nil {
+		logger.Error("Environment validation failed", "error", err)
 		os.Exit(1)
 	}
 

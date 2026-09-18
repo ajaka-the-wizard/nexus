@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"auth/common"
 	"auth/internal/cache"
+	"auth/internal/common"
 	"auth/internal/configs"
 	"auth/internal/errs"
 	"auth/internal/models"
