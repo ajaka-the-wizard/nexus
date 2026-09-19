@@ -84,6 +84,7 @@ func checkIfPathIsAllowed(path string) bool {
 		"/api/auth/refresh",
 		"/api/auth/password/reset",
 		"/api/auth/password/forgot",
+		"/api/auth/verify",
 	}
 
 	for _, allowedPath := range allowedPaths {
