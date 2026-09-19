@@ -139,7 +139,9 @@ func HandleLoginActivity(c *gin.Context, payload models.MinimalUserStruct, env *
 }
 
 func TokenDigest(token string) string {
-	digest := sha256.Sum256([]byte(token))
+	h := sha256.New()
+	h.Write([]byte(token))
+	digest := h.Sum(nil)
 	return hex.EncodeToString(digest[:])
 }
 
@@ -154,7 +156,7 @@ func HandleLogoutActivity(c *gin.Context, cc *cache.Cache, env *configs.Env) err
 	sessionToken, _ := c.Cookie("JWT_SECRET")
 	refreshToken, _ := c.Cookie("JWT_REFRESH_SECRET")
 
-	if sessionToken == "" && refreshToken == "" {
+	if sessionToken == "" || refreshToken == "" {
 		return errs.ERR_NO_TOKENS_PROVIDED
 	}
 

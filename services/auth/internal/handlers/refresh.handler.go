@@ -8,6 +8,7 @@ import (
 	"auth/internal/models"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -32,6 +33,12 @@ func HandleRefresh(env *configs.Env, cc *cache.Cache) gin.HandlerFunc {
 		if err != nil {
 			logger.Warn("Refresh request provided an invalid or expired refresh token", "error", err)
 			c.JSON(http.StatusUnauthorized, gin.H{"success": false, "message": "Unauthorized"})
+			return
+		}
+
+		if err := common.BlacklistToken(c.Request.Context(), cc, refreshToken, "refresh", time.Until(payload.ExpiresAt.Time)); err != nil {
+			logger.Error("Failed to blacklist refresh token", "error", err.Error())
+			c.JSON(http.StatusInternalServerError, gin.H{"success": false, "message": "Something went wrong"})
 			return
 		}
 
